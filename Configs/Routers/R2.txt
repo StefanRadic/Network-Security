@@ -1,0 +1,110 @@
+version 15.1
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+no service password-encryption
+!
+hostname R2
+!
+!
+!
+!
+!
+!
+!
+aaa new-model
+!
+aaa authentication login SSH_TACACS group tacacs+ local 
+!
+!
+!
+!
+!
+!
+!
+ip cef
+no ipv6 cef
+!
+!
+!
+username ADMIN123 privilege 15 secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+username ADMIN456 privilege 15 secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+!
+!
+license udi pid CISCO2911/K9 sn FTX1524JK8M-
+!
+!
+!
+!
+!
+!
+!
+!
+!
+ip ssh version 2
+ip ssh authentication-retries 2
+ip ssh time-out 30
+no ip domain-lookup
+ip domain-name www.secure-network.com
+!
+!
+spanning-tree mode pvst
+!
+!
+!
+!
+!
+!
+interface GigabitEthernet0/0
+ description LINK-TO-R3
+ ip address 172.168.10.1 255.255.255.252
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/1
+ description LINK-TO-R1
+ ip address 10.10.11.1 255.255.255.252
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/2
+ description LINK-TO-IN
+ ip address 10.5.5.2 255.255.255.252
+ duplex auto
+ speed auto
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+router eigrp 100
+ eigrp router-id 2.2.2.2
+ redistribute static 
+ network 172.168.10.0 0.0.0.3
+ network 10.10.11.0 0.0.0.3
+ network 10.5.5.0 0.0.0.3
+!
+ip classless
+ip route 10.10.2.0 255.255.255.0 10.5.5.1 
+!
+ip flow-export version 9
+!
+!
+!
+!
+tacacs-server host 10.10.2.2
+tacacs-server key cisco_tacacs
+!
+!
+!
+line con 0
+ logging synchronous
+!
+line aux 0
+!
+line vty 0 4
+ login authentication SSH_TACACS
+ transport input ssh
+!
+!
+!
+end

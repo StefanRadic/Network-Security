@@ -1,0 +1,201 @@
+version 15.1
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+service password-encryption
+!
+hostname R3
+!
+no logging console
+login block-for 60 attempts 2 within 30
+!
+!
+!
+!
+!
+!
+!
+ip cef
+no ipv6 cef
+!
+!
+!
+!
+license udi pid CISCO2911/K9 sn FTX15241472-
+license boot module c2900 technology-package securityk9
+!
+!
+!
+crypto isakmp policy 10
+ encr aes 256
+ authentication pre-share
+ group 5
+ lifetime 3600
+!
+crypto isakmp key vpncisco address 200.180.100.2
+!
+!
+!
+crypto ipsec transform-set VPN-SET esp-aes 256 esp-sha-hmac
+!
+crypto map VPN-MAP 10 ipsec-isakmp 
+ description VPN connection to ISP
+ set peer 200.180.100.2
+ set transform-set VPN-SET 
+ match address VPN-NAT-EXEMPT
+!
+!
+!
+!
+ip ssh version 2
+ip ssh authentication-retries 2
+ip ssh time-out 30
+no ip domain-lookup
+ip domain-name www.secure-network.com
+!
+!
+spanning-tree mode pvst
+!
+class-map type inspect match-any EMPLOYEES_PROTOCOLS
+ match access-group name EMPLOYEES_TRAFFIC
+class-map type inspect match-any SEMI_TRUSTED_PROTOCOLS
+ match protocol http
+ match protocol https
+ match protocol dns
+class-map type inspect match-any INTERNET_PROTOCOLS
+ match access-group name VPN_TRAFFIC
+!
+policy-map type inspect EMPLOYEES_TO_INTERNET
+ class type inspect EMPLOYEES_PROTOCOLS
+  inspect
+!
+policy-map type inspect SEMI_TRUSTED_TO_INTERNET
+ class type inspect SEMI_TRUSTED_PROTOCOLS
+  inspect
+!
+policy-map type inspect INTERNET_TO_DMZ
+ class type inspect INTERNET_PROTOCOLS
+  inspect
+ class type inspect class-default
+  drop
+!
+!
+!
+zone security INTERNET
+zone security EMPLOYEES
+zone security SEMI_TRUSTED
+zone-pair security EMPLOYEES_INTERNET source EMPLOYEES destination INTERNET
+ service-policy type inspect EMPLOYEES_TO_INTERNET
+zone-pair security SEMI_TRUSTED_INTERNET source SEMI_TRUSTED destination INTERNET
+ service-policy type inspect SEMI_TRUSTED_TO_INTERNET
+zone-pair security INTERNET_DMZ source INTERNET destination EMPLOYEES
+ service-policy type inspect INTERNET_TO_DMZ
+!
+!
+interface Loopback0
+ ip address 110.110.110.110 255.255.255.255
+!
+interface GigabitEthernet0/0
+ description LINK-TO-R2
+ ip address 172.168.10.2 255.255.255.252
+ zone-member security EMPLOYEES
+ ip nat inside
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/1
+ description LINK-TO-SC-1
+ ip address 172.168.20.1 255.255.255.252
+ zone-member security SEMI_TRUSTED
+ ip nat inside
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/2
+ description LINK-TO-INTERNET
+ ip address 200.180.100.1 255.255.255.252
+ zone-member security INTERNET
+ ip nat outside
+ duplex auto
+ speed auto
+ crypto map VPN-MAP
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+router eigrp 100
+ eigrp router-id 3.3.3.3
+ redistribute static 
+ passive-interface GigabitEthernet0/2
+ passive-interface Loopback0
+ network 172.168.10.0 0.0.0.3
+ network 172.168.20.0 0.0.0.3
+ network 200.180.100.0 0.0.0.3
+ network 110.110.110.110 0.0.0.0
+!
+ip nat inside source list NAT-SOURCE interface GigabitEthernet0/2 overload
+ip nat inside source static tcp 10.10.3.200 25 200.180.100.1 25 
+ip nat inside source static tcp 10.10.2.1 80 200.180.100.1 8080 
+ip nat inside source static udp 10.10.2.1 53 200.180.100.1 1053 
+ip nat inside source static tcp 10.10.2.1 443 200.180.100.1 8443 
+ip classless
+ip route 0.0.0.0 0.0.0.0 200.180.100.2 
+!
+ip flow-export version 9
+!
+!
+ip access-list extended sl_def_acl
+ deny tcp any any eq telnet
+ deny tcp any any eq www
+ deny tcp any any eq 22
+ permit tcp any any eq 22
+ip access-list extended VPN-NAT-EXEMPT
+ permit ip 10.0.0.0 0.255.255.255 192.168.255.0 0.0.0.255
+ip access-list extended VPN_TRAFFIC
+ permit udp any any eq isakmp
+ permit udp any any eq non500-isakmp
+ permit esp any any
+ permit tcp any any eq www
+ permit tcp any any eq 443
+ permit tcp any any eq smtp
+ permit udp any any eq domain
+ip access-list extended EMPLOYEES_TRAFFIC
+ permit tcp any any
+ permit udp any any
+ permit icmp any any
+ permit esp any any
+ permit udp any any eq isakmp
+ permit udp any any eq non500-isakmp
+ip access-list extended NAT-SOURCE
+ deny ip 10.0.0.0 0.255.255.255 192.168.255.0 0.0.0.255
+ permit ip 10.0.0.0 0.255.255.255 any
+!
+!
+!
+!
+snmp-server community cisco RO
+!
+line con 0
+ transport output none
+ exec-timeout 1 0
+ logging synchronous
+!
+line aux 0
+ password 7 0822455D0A16
+ login
+!
+line vty 0 2
+ exec-timeout 1 0
+ password 7 0822455D0A16
+ login
+ transport input ssh
+line vty 3 4
+ login
+ transport input none
+line vty 5 14
+ login
+ transport input none
+!
+!
+!
+end

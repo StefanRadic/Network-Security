@@ -1,0 +1,162 @@
+version 15.1
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+service password-encryption
+!
+hostname R1
+!
+login block-for 60 attempts 2 within 30
+login on-failure log
+!
+!
+!
+!
+!
+!
+aaa new-model
+!
+aaa authentication login SSH_RADIUS group radius local 
+!
+!
+!
+!
+!
+!
+!
+ip cef
+no ipv6 cef
+!
+!
+!
+username local_admin privilege 15 secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+!
+!
+license udi pid CISCO2911/K9 sn FTX1524RF8B-
+!
+!
+!
+!
+!
+!
+!
+!
+!
+ip ssh version 2
+ip ssh authentication-retries 2
+ip ssh time-out 30
+no ip domain-lookup
+ip domain-name www.secure-network.com
+!
+!
+spanning-tree mode pvst
+!
+!
+!
+!
+!
+!
+interface Loopback0
+ ip address 10.255.255.1 255.255.255.255
+!
+interface GigabitEthernet0/0
+ description LINK-TO-ZONE_EMPLOYEES
+ no ip address
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/0.99
+ description MANAGEMENT-SB1
+ encapsulation dot1Q 99
+ ip address 192.168.99.1 255.255.255.0
+!
+interface GigabitEthernet0/0.100
+ encapsulation dot1Q 100
+ ip address 10.10.3.1 255.255.255.0
+ ip access-group R1-SERVICES in
+!
+interface GigabitEthernet0/1
+ description LINK-TO-VLAN_100
+ ip address 10.10.11.2 255.255.255.252
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/2
+ description LINK-TO-VLAN_200
+ no ip address
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/2.98
+ description MANAGEMENT-SB2
+ encapsulation dot1Q 98
+ ip address 192.168.98.1 255.255.255.0
+!
+interface GigabitEthernet0/2.200
+ encapsulation dot1Q 200
+ ip address 10.10.4.1 255.255.255.0
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+router eigrp 100
+ eigrp router-id 1.1.1.1
+ passive-interface GigabitEthernet0/0
+ passive-interface GigabitEthernet0/2
+ passive-interface Loopback0
+ network 10.10.3.0 0.0.0.255
+ network 10.10.4.0 0.0.0.255
+ network 10.10.11.0 0.0.0.3
+ network 10.255.255.1 0.0.0.0
+!
+ip classless
+!
+ip flow-export version 9
+!
+!
+ip access-list extended sl_def_acl
+ deny tcp any any eq telnet
+ deny tcp any any eq www
+ deny tcp any any eq 22
+ permit tcp any any eq 22
+ip access-list extended R1-SERVICES
+ remark Permit RADIUS from R1
+ permit udp host 10.10.3.1 host 10.10.3.240 eq 1645
+ remark Allow Mail traffic
+ permit udp host 10.10.3.240 host 10.10.3.1 eq 1645
+ permit tcp any host 10.10.3.200 eq smtp
+ permit tcp any host 10.10.3.200 eq pop3
+ deny ip any any
+ip access-list standard SSH_ALLOWED
+ permit host 10.5.5.1
+ deny any
+!
+!
+radius server host
+ address ipv4 10.10.3.240 auth-port 1645
+ key cisco_radius
+radius server 10.10.3.240
+ address ipv4 10.10.3.240 auth-port 1645
+ key cisco_radius
+!
+!
+!
+line con 0
+ logging synchronous
+!
+line aux 0
+!
+line vty 0 2
+ access-class SSH_ALLOWED in
+ exec-timeout 1 0
+ no motd-banner
+ login authentication SSH_RADIUS
+ transport input ssh
+line vty 3 4
+ transport input none
+line vty 5 14
+ transport input none
+!
+!
+!
+end
